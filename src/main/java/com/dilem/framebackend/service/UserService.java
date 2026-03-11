@@ -10,10 +10,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final AuditService auditService;
 
-    public UserService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository) {
+    public UserService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, AuditService auditService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -26,5 +28,8 @@ public class UserService {
 
         // 3. Finally, Delete the User
         userRepository.deleteById(userId.intValue());
+        
+        // 4. Audit Log
+        auditService.logAccountDeletion(userId);
     }
 }
