@@ -1,6 +1,10 @@
 package com.dilem.framebackend.exception;
 
+import java.io.Serial;
+
 public class TokenRefreshException extends RuntimeException {
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     public TokenRefreshException(String token, String message) {
