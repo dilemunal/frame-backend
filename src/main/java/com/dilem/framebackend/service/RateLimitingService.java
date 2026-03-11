@@ -11,15 +11,19 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class RateLimitingService {
 
-    private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> ipCache = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> emailCache = new ConcurrentHashMap<>();
 
-    public Bucket resolveBucket(String apiKey) {
-        return cache.computeIfAbsent(apiKey, this::newBucket);
+    public Bucket resolveBucket(String key) {
+        return ipCache.computeIfAbsent(key, this::newBucket);
+    }
+    
+    public Bucket resolveEmailBucket(String email) {
+        return emailCache.computeIfAbsent(email, this::newBucket);
     }
 
-    private Bucket newBucket(String apiKey) {
-        // Allow 5 login attempts per minute
-        // Updated for Bucket4j 8.10.x
+    private Bucket newBucket(String key) {
+        // Allow 5 login attempts per minute per IP or Email
         Bandwidth limit = Bandwidth.builder()
                 .capacity(5)
                 .refillGreedy(5, Duration.ofMinutes(1))

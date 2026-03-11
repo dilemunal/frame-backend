@@ -5,6 +5,7 @@ import com.dilem.framebackend.model.RefreshToken;
 import com.dilem.framebackend.repository.RefreshTokenRepository;
 import com.dilem.framebackend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +33,8 @@ public class RefreshTokenService {
     public RefreshToken createRefreshToken(Long userId) {
         RefreshToken refreshToken = new RefreshToken();
 
-        refreshToken.setUser(userRepository.findById(userId.intValue()).get());
+        refreshToken.setUser(userRepository.findById(userId.intValue())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId)));
         refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         refreshToken.setToken(UUID.randomUUID().toString());
 
@@ -51,6 +53,7 @@ public class RefreshTokenService {
 
     @Transactional
     public int deleteByUserId(Long userId) {
-        return refreshTokenRepository.deleteByUser(userRepository.findById(userId.intValue()).get());
+        return refreshTokenRepository.deleteByUser(userRepository.findById(userId.intValue())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId)));
     }
 }

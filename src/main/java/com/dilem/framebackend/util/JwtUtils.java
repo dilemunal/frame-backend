@@ -4,7 +4,6 @@ import com.dilem.framebackend.model.User;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -25,7 +24,7 @@ public class JwtUtils {
     private String jwtSecret;
 
     @Value("${application.security.jwt.access-token.expiration}")
-    private int jwtExpirationMs;
+    private long jwtExpirationMs;
 
     public String generateJwtToken(Authentication authentication) {
         User userPrincipal = (User) authentication.getPrincipal();

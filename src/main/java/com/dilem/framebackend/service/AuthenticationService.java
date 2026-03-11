@@ -10,7 +10,10 @@ import com.dilem.framebackend.repository.RefreshTokenRepository;
 import com.dilem.framebackend.repository.UserRepository;
 import com.dilem.framebackend.util.JwtUtils;
 import com.nimbusds.jwt.JWTClaimsSet;
+import io.github.bucket4j.Bucket;
+import io.github.bucket4j.ConsumptionProbe;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -18,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -35,8 +39,9 @@ public class AuthenticationService {
     private final RefreshTokenService refreshTokenService;
     private final SocialAuthService socialAuthService;
     private final AuditService auditService;
+    private final RateLimitingService rateLimitingService;
 
-    public AuthenticationService(AuthenticationManager authenticationManager, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, PasswordEncoder passwordEncoder, JwtUtils jwtUtils, RefreshTokenService refreshTokenService, SocialAuthService socialAuthService, AuditService auditService) {
+    public AuthenticationService(AuthenticationManager authenticationManager, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, PasswordEncoder passwordEncoder, JwtUtils jwtUtils, RefreshTokenService refreshTokenService, SocialAuthService socialAuthService, AuditService auditService, RateLimitingService rateLimitingService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -45,9 +50,17 @@ public class AuthenticationService {
         this.refreshTokenService = refreshTokenService;
         this.socialAuthService = socialAuthService;
         this.auditService = auditService;
+        this.rateLimitingService = rateLimitingService;
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        // Email Rate Limiting
+        Bucket bucket = rateLimitingService.resolveEmailBucket(request.email());
+        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+        if (!probe.isConsumed()) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts for this email.");
+        }
+
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
@@ -78,6 +91,7 @@ public class AuthenticationService {
         user.setLastname(request.lastName());
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
+        user.setProvider("LOCAL");
 
         userRepository.save(user);
 
@@ -104,13 +118,13 @@ public class AuthenticationService {
     @Transactional
     public AuthenticationResponse loginWithGoogle(String idToken) {
         JWTClaimsSet claims = socialAuthService.verifyGoogleToken(idToken);
-        return processSocialLogin(claims, "Google");
+        return processSocialLogin(claims, "GOOGLE");
     }
 
     @Transactional
     public AuthenticationResponse loginWithApple(String idToken) {
         JWTClaimsSet claims = socialAuthService.verifyAppleToken(idToken);
-        return processSocialLogin(claims, "Apple");
+        return processSocialLogin(claims, "APPLE");
     }
 
     private AuthenticationResponse processSocialLogin(JWTClaimsSet claims, String provider) {
@@ -125,6 +139,7 @@ public class AuthenticationService {
             newUser.setEmail(email);
             newUser.setFirstname((String) claims.getClaim("given_name"));
             newUser.setLastname((String) claims.getClaim("family_name"));
+            newUser.setProvider(provider);
             
             if (newUser.getFirstname() == null) newUser.setFirstname(provider);
             if (newUser.getLastname() == null) newUser.setLastname("User");
