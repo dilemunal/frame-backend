@@ -19,7 +19,7 @@ public class RateLimitingService {
 
     private Bucket newBucket(String apiKey) {
         // Allow 5 login attempts per minute
-        // Updated for Bucket4j 8.x+
+        // Updated for Bucket4j 8.10.x
         Bandwidth limit = Bandwidth.builder()
                 .capacity(5)
                 .refillGreedy(5, Duration.ofMinutes(1))
