@@ -1,5 +1,6 @@
 package com.dilem.framebackend.model;
 
+import com.dilem.framebackend.model.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,8 +28,9 @@ public class User implements UserDetails {
     private String email;
     private String password;
     
-    // Auth provider (GOOGLE, APPLE, LOCAL)
-    private String provider;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthProvider provider;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

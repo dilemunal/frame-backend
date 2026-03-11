@@ -1,6 +1,7 @@
 package com.dilem.framebackend.service;
 
 import com.dilem.framebackend.model.User;
+import com.dilem.framebackend.model.enums.AuthProvider;
 import com.dilem.framebackend.repository.RefreshTokenRepository;
 import com.dilem.framebackend.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,22 +29,23 @@ public class UserService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         // 1. Revoke Apple Token if applicable
-        if ("APPLE".equalsIgnoreCase(user.getProvider())) {
-            // Note: In a real implementation, you would retrieve the stored Apple Refresh Token
-            // from the database here. Since we are not storing it in this MVP, 
-            // we log this action.
+        if (user.getProvider() == AuthProvider.APPLE) {
+            // Note: For MVP, we don't store Apple Refresh Token.
+            // In full implementation, retrieve it here and call:
             // socialAuthService.revokeAppleToken(user.getAppleRefreshToken());
         }
 
         // 2. Delete Refresh Tokens
         refreshTokenRepository.deleteByUser(user);
 
-        // TODO: Delete all user-related data (Journal Entries, Media Assets, etc.)
+        // 3. Purge User Data (Future entities like JournalEntry, MediaAsset)
+        // journalEntryRepository.deleteByUser(user);
+        // mediaAssetRepository.deleteByUser(user);
 
-        // 3. Finally, Delete the User
+        // 4. Finally, Delete the User
         userRepository.deleteById(userId.intValue());
         
-        // 4. Audit Log
+        // 5. Audit Log
         auditService.logAccountDeletion(userId);
     }
 }

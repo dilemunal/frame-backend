@@ -6,6 +6,7 @@ import com.dilem.framebackend.model.dto.UserDto;
 import com.dilem.framebackend.model.dto.auth.AuthenticationRequest;
 import com.dilem.framebackend.model.dto.auth.AuthenticationResponse;
 import com.dilem.framebackend.model.dto.auth.RegisterRequest;
+import com.dilem.framebackend.model.enums.AuthProvider;
 import com.dilem.framebackend.repository.RefreshTokenRepository;
 import com.dilem.framebackend.repository.UserRepository;
 import com.dilem.framebackend.util.JwtUtils;
@@ -15,6 +16,7 @@ import io.github.bucket4j.ConsumptionProbe;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,8 +24,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.UUID;
 
 @Service
 public class AuthenticationService {
@@ -54,7 +54,6 @@ public class AuthenticationService {
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-        // Email Rate Limiting
         Bucket bucket = rateLimitingService.resolveEmailBucket(request.email());
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
         if (!probe.isConsumed()) {
@@ -62,6 +61,13 @@ public class AuthenticationService {
         }
 
         try {
+            User user = userRepository.findByEmail(request.email())
+                    .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+
+            if (user.getProvider() != AuthProvider.LOCAL) {
+                throw new BadCredentialsException("Please use your social account to login.");
+            }
+
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
 
@@ -91,7 +97,7 @@ public class AuthenticationService {
         user.setLastname(request.lastName());
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setProvider("LOCAL");
+        user.setProvider(AuthProvider.LOCAL);
 
         userRepository.save(user);
 
@@ -118,16 +124,16 @@ public class AuthenticationService {
     @Transactional
     public AuthenticationResponse loginWithGoogle(String idToken) {
         JWTClaimsSet claims = socialAuthService.verifyGoogleToken(idToken);
-        return processSocialLogin(claims, "GOOGLE");
+        return processSocialLogin(claims, AuthProvider.GOOGLE);
     }
 
     @Transactional
     public AuthenticationResponse loginWithApple(String idToken) {
         JWTClaimsSet claims = socialAuthService.verifyAppleToken(idToken);
-        return processSocialLogin(claims, "APPLE");
+        return processSocialLogin(claims, AuthProvider.APPLE);
     }
 
-    private AuthenticationResponse processSocialLogin(JWTClaimsSet claims, String provider) {
+    private AuthenticationResponse processSocialLogin(JWTClaimsSet claims, AuthProvider provider) {
         String email = (String) claims.getClaim("email");
         
         if (email == null || email.isEmpty()) {
@@ -140,11 +146,10 @@ public class AuthenticationService {
             newUser.setFirstname((String) claims.getClaim("given_name"));
             newUser.setLastname((String) claims.getClaim("family_name"));
             newUser.setProvider(provider);
+            newUser.setPassword(null); // Social users don't have a password
             
-            if (newUser.getFirstname() == null) newUser.setFirstname(provider);
+            if (newUser.getFirstname() == null) newUser.setFirstname(provider.toString());
             if (newUser.getLastname() == null) newUser.setLastname("User");
-            
-            newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); 
             
             return userRepository.save(newUser);
         });
@@ -152,7 +157,7 @@ public class AuthenticationService {
         String jwt = jwtUtils.generateTokenFromUsername(user.getEmail());
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(Long.valueOf(user.getId()));
         
-        auditService.logLoginSuccess(email, provider);
+        auditService.logLoginSuccess(email, provider.toString());
 
         return AuthenticationResponse.of(jwt, refreshToken.getToken(), jwtExpirationMs, UserDto.fromEntity(user));
     }
