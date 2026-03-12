@@ -6,21 +6,23 @@ import com.nimbusds.jose.jwk.source.RemoteJWKSet;
 import com.nimbusds.jose.proc.JWSKeySelector;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jose.util.DefaultResourceRetriever;
+import com.nimbusds.jose.util.ResourceRetriever;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
-import java.net.URL;
+import java.net.URI;
 
 @Service
 public class SocialAuthService {
@@ -33,9 +35,6 @@ public class SocialAuthService {
     @Value("${social.apple.client-id}")
     private String appleClientId;
     
-    // You need Apple Client Secret for revocation. 
-    // It's a JWT you generate periodically.
-    // For this example, we assume it's provided via env var.
     @Value("${social.apple.client-secret:PLACEHOLDER}")
     private String appleClientSecret;
 
@@ -73,14 +72,18 @@ public class SocialAuthService {
             logger.info("Apple token revoked successfully.");
         } catch (Exception e) {
             logger.error("Failed to revoke Apple token: {}", e.getMessage());
-            // Don't throw, account deletion should proceed even if revocation fails
         }
     }
 
     private JWTClaimsSet verifyToken(String token, String jwkUrl, String issuer, String audience) {
         try {
             ConfigurableJWTProcessor<SecurityContext> jwtProcessor = new DefaultJWTProcessor<>();
-            JWKSource<SecurityContext> keySource = new RemoteJWKSet<>(new URL(jwkUrl));
+            
+            // Fix 1: Use URI.create().toURL() to avoid Java 20 'new URL(String)' deprecation
+            // Fix 2: Provide explicit ResourceRetriever to avoid RemoteJWKSet single-arg deprecation
+            ResourceRetriever resourceRetriever = new DefaultResourceRetriever(5000, 5000);
+            JWKSource<SecurityContext> keySource = new RemoteJWKSet<>(URI.create(jwkUrl).toURL(), resourceRetriever);
+
             JWSAlgorithm expectedJWSAlg = JWSAlgorithm.RS256;
             JWSKeySelector<SecurityContext> keySelector = new JWSVerificationKeySelector<>(expectedJWSAlg, keySource);
             jwtProcessor.setJWSKeySelector(keySelector);
