@@ -83,7 +83,7 @@ public class SocialAuthService {
             // Fix 2: Provide explicit ResourceRetriever to avoid RemoteJWKSet single-arg deprecation
             ResourceRetriever resourceRetriever = new DefaultResourceRetriever(5000, 5000);
             JWKSource<SecurityContext> keySource = new RemoteJWKSet<>(URI.create(jwkUrl).toURL(), resourceRetriever);
-
+            
             JWSAlgorithm expectedJWSAlg = JWSAlgorithm.RS256;
             JWSKeySelector<SecurityContext> keySelector = new JWSVerificationKeySelector<>(expectedJWSAlg, keySource);
             jwtProcessor.setJWSKeySelector(keySelector);
@@ -95,7 +95,7 @@ public class SocialAuthService {
             }
 
             if (!claims.getAudience().contains(audience)) {
-                logger.warn("Audience mismatch. Expected: {}, Got: {}", audience, claims.getAudience());
+                throw new SecurityException("Invalid Audience: " + claims.getAudience());
             }
             
             return claims;

@@ -7,9 +7,11 @@ import com.dilem.framebackend.model.dto.auth.RegisterRequest;
 import com.dilem.framebackend.model.dto.auth.SocialLoginRequest;
 import com.dilem.framebackend.service.AuthenticationService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -44,7 +46,14 @@ public class AuthController {
     }
 
     @PostMapping("/apple-login")
-    public ResponseEntity<AuthenticationResponse> appleLogin(@Valid @RequestBody SocialLoginRequest request) {
-        return ResponseEntity.ok(authService.loginWithApple(request.idToken()));
+    public ResponseEntity<?> appleLogin() {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+            .body("Apple login henüz desteklenmiyor.");
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
+        authService.logout(authHeader);
+        return ResponseEntity.noContent().build();
     }
 }

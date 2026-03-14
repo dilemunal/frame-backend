@@ -25,6 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.UUID;
+
 @Service
 public class AuthenticationService {
 
@@ -154,11 +156,26 @@ public class AuthenticationService {
             return userRepository.save(newUser);
         });
 
+        if (user.getProvider() != provider) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Bu email " + user.getProvider() + " ile kayıtlı. Lütfen o yöntemi kullanın.");
+        }
+
         String jwt = jwtUtils.generateTokenFromUsername(user.getEmail());
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(Long.valueOf(user.getId()));
         
         auditService.logLoginSuccess(email, provider.toString());
 
         return AuthenticationResponse.of(jwt, refreshToken.getToken(), jwtExpirationMs, UserDto.fromEntity(user));
+    }
+
+    public void logout(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String username = jwtUtils.getUserNameFromJwtToken(token);
+            userRepository.findByEmail(username).ifPresent(user ->
+                refreshTokenService.deleteByUserId(Long.valueOf(user.getId()))
+            );
+        }
     }
 }
