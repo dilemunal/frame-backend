@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -53,10 +54,10 @@ public class JournalEntry {
     @Column(name = "weather_json", length = 256)
     private String weatherJson;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    // Time Capsule fields (for future feature)
     @Column(name = "capsule_unlock_at")
     private LocalDateTime capsuleUnlockAt;
 

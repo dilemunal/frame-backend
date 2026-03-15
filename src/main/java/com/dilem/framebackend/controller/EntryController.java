@@ -1,49 +1,80 @@
 package com.dilem.framebackend.controller;
 
-import com.dilem.framebackend.model.JournalEntry;
-import com.dilem.framebackend.model.dto.JournalEntryDto;
-import com.dilem.framebackend.repository.JournalEntryRepository;
+import com.dilem.framebackend.model.dto.entry.CreateEntryRequest;
+import com.dilem.framebackend.model.dto.entry.EntryResponse;
+import com.dilem.framebackend.model.dto.entry.PagedEntriesResponse;
+import com.dilem.framebackend.model.dto.entry.UpdateEntryRequest;
+import com.dilem.framebackend.service.EntryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/entries")
 @RequiredArgsConstructor
 public class EntryController {
 
-    private final JournalEntryRepository entryRepository;
+    private final EntryService entryService;
 
     @GetMapping
-    public ResponseEntity<List<JournalEntryDto>> getMyEntries(Authentication authentication) {
+    public ResponseEntity<PagedEntriesResponse> getMyEntries(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
         String email = authentication.getName();
-        List<JournalEntry> entries = entryRepository.findByUserEmailOrderByCreatedAtDesc(email);
+        Page<EntryResponse> entriesPage = entryService.getEntries(email, page, size);
         
-        List<JournalEntryDto> dtos = entries.stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
-                
-        return ResponseEntity.ok(dtos);
+        PagedEntriesResponse response = new PagedEntriesResponse(
+                entriesPage.getContent(),
+                entriesPage.getNumber(),
+                entriesPage.hasNext()
+        );
+        return ResponseEntity.ok(response);
     }
 
-    private JournalEntryDto mapToDto(JournalEntry entry) {
-        return new JournalEntryDto(
-                entry.getId(),
-                entry.getTemplateId(),
-                entry.getTitle(),
-                entry.getFreeText(),
-                entry.getMood(),
-                entry.getLocationJson(),
-                entry.getWeatherJson(),
-                entry.getCreatedAt(),
-                entry.getIsCapsuleSealed(),
-                entry.getCapsuleUnlockAt()
-        );
+    @GetMapping("/{id}")
+    public ResponseEntity<EntryResponse> getEntry(Authentication authentication, @PathVariable Long id) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(entryService.getEntry(email, id));
+    }
+
+    @PostMapping
+    public ResponseEntity<EntryResponse> createEntry(
+            Authentication authentication,
+            @Valid @RequestBody CreateEntryRequest req
+    ) {
+        String email = authentication.getName();
+        EntryResponse response = entryService.createEntry(email, req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<EntryResponse> updateEntry(
+            Authentication authentication,
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateEntryRequest req
+    ) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(entryService.updateEntry(email, id, req));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEntry(Authentication authentication, @PathVariable Long id) {
+        String email = authentication.getName();
+        entryService.deleteEntry(email, id);
+        return ResponseEntity.noContent().build();
     }
 }
