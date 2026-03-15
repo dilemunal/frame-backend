@@ -37,6 +37,14 @@ public class EntryController {
         String email = authentication.getName();
         Page<EntryResponse> entriesPage = entryService.getEntries(email, page, size);
         
+        // --- DEBUG LOGLARI BAŞLANGICI ---
+        System.out.println("=== BACKEND SYNC DEBUG ===");
+        System.out.println("İstek atan kullanıcı: " + email);
+        System.out.println("İstenen Sayfa: " + page + " | Boyut: " + size);
+        System.out.println("Veritabanından dönen kayıt sayısı: " + entriesPage.getNumberOfElements());
+        System.out.println("Daha fazla sayfa var mı (hasMore): " + entriesPage.hasNext());
+        // --- DEBUG LOGLARI BİTİŞİ ---
+
         PagedEntriesResponse response = new PagedEntriesResponse(
                 entriesPage.getContent(),
                 entriesPage.getNumber(),
