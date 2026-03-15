@@ -32,7 +32,7 @@ public class EntryService {
 
     public Page<EntryResponse> getEntries(String email, int page, int size) {
         User user = resolveUser(email);
-        return entryRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, size))
+        return entryRepository.findByUserId(user.getId(), PageRequest.of(page, size))
                 .map(EntryResponse::fromEntity);
     }
 

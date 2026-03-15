@@ -79,9 +79,9 @@ public class SecurityConfig {
 
         http.authenticationProvider(authenticationProvider());
         
-        // Add RateLimitFilter before JWT filter
-        http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+        // Add JWT Filter first, then RateLimitFilter
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
