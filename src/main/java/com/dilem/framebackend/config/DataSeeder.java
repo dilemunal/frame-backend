@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -25,8 +26,25 @@ public class DataSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (userRepository.findByEmail("test@frame.app").isPresent()) {
-            return; // already seeded
+        // Create ghost user first to occupy ID=1
+        if (userRepository.findByEmail("ghost@frame.internal").isEmpty()) {
+            userRepository.save(User.builder()
+                    .firstname("Ghost")
+                    .lastname("User")
+                    .email("ghost@frame.internal")
+                    .password(passwordEncoder.encode("ghost123"))
+                    .provider(AuthProvider.LOCAL)
+                    .build());
+        }
+
+        Optional<User> existingTestUser = userRepository.findByEmail("test@frame.app");
+        if (existingTestUser.isPresent()) {
+            // Şifreyi zorla "test123" yap ki eski denemelerden kalan farklı şifreler sorun yaratmasın
+            User user = existingTestUser.get();
+            user.setPassword(passwordEncoder.encode("test123"));
+            userRepository.save(user);
+            System.out.println("[DataSeeder] ✅ test@frame.app kullanıcısının şifresi 'test123' olarak sıfırlandı.");
+            return; // Veriler zaten eklenmiş, tekrar ekleme.
         }
 
         User seedUser = userRepository.save(User.builder()
